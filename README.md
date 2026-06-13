@@ -1,12 +1,15 @@
 # Snell v6 一键安装脚本
 
-这个仓库只保留 Snell v6 的 Debian 12 一键安装脚本。
+这个仓库只保留 Snell v6 的一键安装脚本。
 
 Snell 是 Surge 团队开发的轻量加密代理协议。v6 的核心变化是根据 PSK 自动派生部署级协议特征，让不同服务器产生不同的流量特征。当前 Snell v6 仍是 Beta，客户端和服务端建议保持同一代 Beta 版本。
 
 ## 适用环境
 
-- Debian 12
+- Debian 11/12
+- Ubuntu 20.04/22.04/24.04
+- CentOS 7/8/Stream/9
+- Rocky Linux / AlmaLinux / RHEL 系发行版
 - root 用户或可使用 sudo 的用户
 - Surge Mac Beta 或 Surge iOS TestFlight，且客户端需要支持 `version=6`
 
@@ -21,7 +24,12 @@ bash <(curl -fsSL https://raw.githubusercontent.com/akaagiao1/sb-zhaige/main/sne
 如果服务器没有 `curl`：
 
 ```bash
+# Debian / Ubuntu
 apt update && apt install -y curl
+
+# CentOS / RHEL / Rocky / AlmaLinux
+dnf install -y curl || yum install -y curl
+
 bash <(curl -fsSL https://raw.githubusercontent.com/akaagiao1/sb-zhaige/main/snell-v6)
 ```
 
@@ -32,6 +40,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/akaagiao1/sb-zhaige/main/sne
 - 随机生成 PSK 密钥
 - 创建 `/etc/snell-v6/snell-server.conf`
 - 创建并启动 systemd 服务 `snell-v6`
+- 自动处理 UFW / firewalld 放行
 - 输出 Surge 客户端配置
 
 安装完成后，客户端配置会保存到：
@@ -53,6 +62,8 @@ Snell-v6 = snell, 服务器IP, 随机端口, psk=随机密钥, version=6
 ```ini
 Snell-v6 = snell, 1.2.3.4, 34567, psk=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef, version=6
 ```
+
+不建议默认添加 `reuse=true` 或其他多路复用参数。Surge 官方手册目前把 Snell 的 `reuse` 标注为 Snell v4 的可选连接复用参数，v6 先保持默认最稳。
 
 ## 可选参数
 
