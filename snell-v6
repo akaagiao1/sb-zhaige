@@ -79,9 +79,25 @@ random_psk() {
 
 install_deps() {
   log "Installing dependencies..."
-  export DEBIAN_FRONTEND=noninteractive
-  apt-get update
-  apt-get install -y ca-certificates wget unzip curl openssl iproute2 coreutils
+
+  if command -v apt-get >/dev/null 2>&1; then
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update
+    apt-get install -y ca-certificates wget unzip curl openssl iproute2 coreutils
+    return
+  fi
+
+  if command -v dnf >/dev/null 2>&1; then
+    dnf install -y ca-certificates wget unzip curl openssl iproute coreutils
+    return
+  fi
+
+  if command -v yum >/dev/null 2>&1; then
+    yum install -y ca-certificates wget unzip curl openssl iproute coreutils
+    return
+  fi
+
+  die "Unsupported package manager. Please install wget, unzip, curl, openssl, iproute/iproute2 and coreutils manually."
 }
 
 ensure_service_identity() {
@@ -181,6 +197,12 @@ open_firewall_if_needed() {
   if command -v ufw >/dev/null 2>&1 && ufw status | grep -qi "Status: active"; then
     log "Opening TCP ${SNELL_PORT} in UFW..."
     ufw allow "${SNELL_PORT}/tcp"
+  fi
+
+  if command -v firewall-cmd >/dev/null 2>&1 && firewall-cmd --state >/dev/null 2>&1; then
+    log "Opening TCP ${SNELL_PORT} in firewalld..."
+    firewall-cmd --permanent --add-port="${SNELL_PORT}/tcp" >/dev/null
+    firewall-cmd --reload >/dev/null
   fi
 }
 
