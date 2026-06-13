@@ -7,8 +7,8 @@ Snell v6 当前仍是 Beta，脚本默认安装官方 `6.0.0b2` 服务端。Snel
 ## 使用方法
 
 ```bash
-wget -O snell-v6-install.sh https://raw.githubusercontent.com/akaagiao1/sb-zhaige/main/snell-v6-install.sh
-bash snell-v6-install.sh
+wget -O snell-v6 https://raw.githubusercontent.com/akaagiao1/sb-zhaige/main/snell-v6
+bash snell-v6
 ```
 
 安装完成后，脚本会输出 Surge 客户端配置，并保存到服务器：
@@ -36,25 +36,25 @@ Snell-v6 = snell, 1.2.3.4, 34567, psk=0123456789abcdef..., version=6
 指定端口：
 
 ```bash
-SNELL_PORT=7177 bash snell-v6-install.sh
+SNELL_PORT=7177 bash snell-v6
 ```
 
 指定 PSK：
 
 ```bash
-SNELL_PSK='your-strong-psk' bash snell-v6-install.sh
+SNELL_PSK='your-strong-psk' bash snell-v6
 ```
 
 开启 IPv6 监听：
 
 ```bash
-ENABLE_IPV6=1 bash snell-v6-install.sh
+ENABLE_IPV6=1 bash snell-v6
 ```
 
 指定 DNS 出口 IP 偏好：
 
 ```bash
-DNS_IP_PREFERENCE=prefer-ipv4 bash snell-v6-install.sh
+DNS_IP_PREFERENCE=prefer-ipv4 bash snell-v6
 ```
 
 支持值：
