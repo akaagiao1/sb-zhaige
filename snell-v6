@@ -7,14 +7,24 @@ SNELL_PSK="${SNELL_PSK:-}"
 ENABLE_IPV6="${ENABLE_IPV6:-0}"
 DNS_IP_PREFERENCE="${DNS_IP_PREFERENCE:-default}"
 
-CONFIG_DIR="/etc/snell"
+SERVICE_NAME="snell-v6"
+SERVICE_USER="nobody"
+SERVICE_GROUP="nogroup"
+
+CONFIG_DIR="/etc/snell-v6"
 CONFIG_FILE="${CONFIG_DIR}/snell-server.conf"
-SERVICE_FILE="/etc/systemd/system/snell.service"
-BIN_FILE="/usr/local/bin/snell-server"
-CLIENT_FILE="/root/snell-client.conf"
+SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
+BIN_FILE="/usr/local/bin/snell-server-v6"
+CLIENT_FILE="/root/snell-v6-client.conf"
+
+OLD_SELF_SERVICE_FILE="/etc/systemd/system/snell.service"
+
+log() {
+  echo "[snell-v6] $*"
+}
 
 die() {
-  echo "ERROR: $*" >&2
+  echo "[snell-v6] ERROR: $*" >&2
   exit 1
 }
 
@@ -22,6 +32,10 @@ need_root() {
   if [[ "${EUID}" -ne 0 ]]; then
     die "Please run as root, for example: sudo bash snell-v6"
   fi
+}
+
+need_systemd() {
+  command -v systemctl >/dev/null 2>&1 || die "systemctl was not found. This script requires systemd."
 }
 
 detect_arch() {
@@ -60,18 +74,36 @@ random_port() {
 }
 
 random_psk() {
-  if command -v openssl >/dev/null 2>&1; then
-    openssl rand -hex 32
-  else
-    tr -dc 'A-Za-z0-9' </dev/urandom | head -c 48
-    echo
-  fi
+  openssl rand -hex 32
 }
 
 install_deps() {
+  log "Installing dependencies..."
   export DEBIAN_FRONTEND=noninteractive
   apt-get update
   apt-get install -y ca-certificates wget unzip curl openssl iproute2 coreutils
+}
+
+ensure_service_identity() {
+  if ! id -u "${SERVICE_USER}" >/dev/null 2>&1; then
+    SERVICE_USER="root"
+    SERVICE_GROUP="root"
+    return
+  fi
+
+  if ! getent group "${SERVICE_GROUP}" >/dev/null 2>&1; then
+    SERVICE_GROUP="$(id -gn "${SERVICE_USER}")"
+  fi
+}
+
+cleanup_old_self_service() {
+  if [[ -f "${OLD_SELF_SERVICE_FILE}" ]] &&
+    grep -q "/usr/local/bin/snell-server -c /etc/snell/snell-server.conf" "${OLD_SELF_SERVICE_FILE}"; then
+    log "Removing old snell.service created by the previous script..."
+    systemctl disable --now snell >/dev/null 2>&1 || true
+    rm -f "${OLD_SELF_SERVICE_FILE}"
+    systemctl daemon-reload || true
+  fi
 }
 
 install_snell() {
@@ -81,11 +113,12 @@ install_snell() {
   tmp_dir="$(mktemp -d)"
   zip_file="${tmp_dir}/snell-server.zip"
 
-  echo "Downloading Snell Server v${SNELL_VERSION} for linux-${arch}..."
+  log "Downloading Snell Server v${SNELL_VERSION} for linux-${arch}..."
   wget -qO "${zip_file}" "${url}" || die "Download failed: ${url}"
   unzip -oq "${zip_file}" -d "${tmp_dir}"
 
   if [[ ! -f "${tmp_dir}/snell-server" ]]; then
+    rm -rf "${tmp_dir}"
     die "snell-server binary was not found in the downloaded archive"
   fi
 
@@ -94,7 +127,7 @@ install_snell() {
 }
 
 write_config() {
-  local listen_value
+  local listen_value tmp_file
 
   if [[ -z "${SNELL_PORT}" ]]; then
     SNELL_PORT="$(random_port)"
@@ -104,35 +137,36 @@ write_config() {
     SNELL_PSK="$(random_psk)"
   fi
 
-  mkdir -p "${CONFIG_DIR}"
-
   if [[ "${ENABLE_IPV6}" == "1" || "${ENABLE_IPV6}" == "true" ]]; then
     listen_value="0.0.0.0:${SNELL_PORT},[::]:${SNELL_PORT}"
   else
     listen_value="0.0.0.0:${SNELL_PORT}"
   fi
 
-  cat >"${CONFIG_FILE}" <<EOF
+  install -d -m 750 -o root -g "${SERVICE_GROUP}" "${CONFIG_DIR}"
+  tmp_file="$(mktemp)"
+  cat >"${tmp_file}" <<EOF
 [snell-server]
 listen = ${listen_value}
 psk = ${SNELL_PSK}
 dns-ip-preference = ${DNS_IP_PREFERENCE}
 EOF
 
-  chmod 600 "${CONFIG_FILE}"
+  install -m 640 -o root -g "${SERVICE_GROUP}" "${tmp_file}" "${CONFIG_FILE}"
+  rm -f "${tmp_file}"
 }
 
 write_service() {
   cat >"${SERVICE_FILE}" <<EOF
 [Unit]
-Description=Snell Proxy Service
+Description=Snell v6 Proxy Service
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-User=nobody
-Group=nogroup
+User=${SERVICE_USER}
+Group=${SERVICE_GROUP}
 LimitNOFILE=32768
 ExecStart=${BIN_FILE} -c ${CONFIG_FILE}
 Restart=on-failure
@@ -145,44 +179,70 @@ EOF
 
 open_firewall_if_needed() {
   if command -v ufw >/dev/null 2>&1 && ufw status | grep -qi "Status: active"; then
+    log "Opening TCP ${SNELL_PORT} in UFW..."
     ufw allow "${SNELL_PORT}/tcp"
+  fi
+}
+
+format_host_for_surge() {
+  local host="$1"
+
+  if [[ "${host}" == *:* && "${host}" != \[* ]]; then
+    echo "[${host}]"
+  else
+    echo "${host}"
   fi
 }
 
 public_ip() {
   local ip
-  ip="$(curl -4fsS --max-time 5 https://api.ipify.org 2>/dev/null || true)"
+  ip="$(curl -4fsS --max-time 6 https://api.ipify.org 2>/dev/null || true)"
+
+  if [[ -z "${ip}" ]]; then
+    ip="$(curl -4fsS --max-time 6 https://ifconfig.me 2>/dev/null || true)"
+  fi
+
+  if [[ -z "${ip}" && ( "${ENABLE_IPV6}" == "1" || "${ENABLE_IPV6}" == "true" ) ]]; then
+    ip="$(curl -6fsS --max-time 6 https://api64.ipify.org 2>/dev/null || true)"
+  fi
 
   if [[ -z "${ip}" ]]; then
     ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
   fi
 
-  echo "${ip:-YOUR_SERVER_IP}"
+  format_host_for_surge "${ip:-YOUR_SERVER_IP}"
 }
 
 write_client_config() {
-  local server_ip
+  local server_ip tmp_file
   server_ip="$(public_ip)"
+  tmp_file="$(mktemp)"
 
-  cat >"${CLIENT_FILE}" <<EOF
+  cat >"${tmp_file}" <<EOF
 # Surge client configuration
 # Add this line under the [Proxy] section:
 
 Snell-v6 = snell, ${server_ip}, ${SNELL_PORT}, psk=${SNELL_PSK}, version=6
 EOF
 
-  chmod 600 "${CLIENT_FILE}"
+  install -m 600 -o root -g root "${tmp_file}" "${CLIENT_FILE}"
+  rm -f "${tmp_file}"
 }
 
 start_service() {
-  systemctl daemon-reload
-  systemctl enable --now snell
-  systemctl restart snell
+  systemctl daemon-reload || return 1
+  systemctl enable "${SERVICE_NAME}" >/dev/null || return 1
+  systemctl restart "${SERVICE_NAME}" || return 1
+  sleep 1
+  systemctl is-active --quiet "${SERVICE_NAME}"
 }
 
 print_result() {
+  local status="$1"
+
   echo
-  echo "Snell v6 server has been installed."
+  echo "========== Snell v6 =========="
+  echo "Status: ${status}"
   echo
   echo "Server config:"
   echo "  ${CONFIG_FILE}"
@@ -191,22 +251,38 @@ print_result() {
   sed 's/^/  /' "${CLIENT_FILE}"
   echo
   echo "Useful commands:"
-  echo "  systemctl status snell --no-pager"
-  echo "  journalctl -u snell -n 50 --no-pager"
+  echo "  systemctl status ${SERVICE_NAME} --no-pager"
+  echo "  journalctl -u ${SERVICE_NAME} -n 80 --no-pager"
+  echo "  cat ${CLIENT_FILE}"
   echo
   echo "If your VPS provider has a cloud firewall/security group, allow TCP ${SNELL_PORT} there too."
 }
 
+print_failure_details() {
+  echo
+  echo "Service failed to start. Recent logs:"
+  journalctl -u "${SERVICE_NAME}" -n 80 --no-pager || true
+}
+
 main() {
   need_root
+  need_systemd
   install_deps
+  ensure_service_identity
+  cleanup_old_self_service
   install_snell
   write_config
   write_service
-  open_firewall_if_needed
-  start_service
   write_client_config
-  print_result
+  open_firewall_if_needed
+
+  if start_service; then
+    print_result "running"
+  else
+    print_result "failed"
+    print_failure_details
+    exit 1
+  fi
 }
 
 main "$@"
