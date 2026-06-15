@@ -2,7 +2,7 @@
 
 这个仓库只保留 Snell v6 的一键安装脚本。
 
-Snell 是 Surge 团队开发的轻量加密代理协议。v6 的核心变化是根据 PSK 自动派生部署级协议特征，让不同服务器产生不同的流量特征。当前 Snell v6 仍是 Beta，客户端和服务端建议保持同一代 Beta 版本。
+Snell 是 Surge 团队开发的轻量加密代理协议。v6 的核心变化是根据 PSK 自动派生部署级协议特征，让不同服务器产生不同的流量特征。当前脚本默认安装 Snell Server `6.0.0b3`，客户端和服务端建议保持同一代 Beta 版本。
 
 ## 适用环境
 
@@ -36,9 +36,11 @@ bash <(curl -fsSL https://raw.githubusercontent.com/akaagiao1/sb-zhaige/main/sne
 脚本会自动完成：
 
 - 下载 Snell v6 服务端
-- 随机生成端口
-- 随机生成 PSK 密钥
+- 首次安装随机生成端口
+- 首次安装随机生成 PSK 密钥
+- 重新安装时默认保留已有端口和 PSK
 - 创建 `/etc/snell-v6/snell-server.conf`
+- 写入 `mode = default`
 - 创建并启动 systemd 服务 `snell-v6`
 - 自动处理 UFW / firewalld 放行
 - 输出 Surge 客户端配置
@@ -99,6 +101,12 @@ prefer-ipv4
 prefer-ipv6
 ipv4-only
 ipv6-only
+```
+
+指定 Snell v6 mode：
+
+```bash
+SNELL_MODE=default bash <(curl -fsSL https://raw.githubusercontent.com/akaagiao1/sb-zhaige/main/snell-v6)
 ```
 
 ## 常用命令
