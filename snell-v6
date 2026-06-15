@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-SNELL_VERSION="${SNELL_VERSION:-6.0.0b2}"
+SNELL_VERSION="${SNELL_VERSION:-6.0.0b3}"
 SNELL_PORT="${SNELL_PORT:-}"
 SNELL_PSK="${SNELL_PSK:-}"
+SNELL_MODE="${SNELL_MODE:-default}"
 ENABLE_IPV6="${ENABLE_IPV6:-0}"
 DNS_IP_PREFERENCE="${DNS_IP_PREFERENCE:-default}"
 
@@ -77,6 +78,29 @@ random_psk() {
   openssl rand -hex 32
 }
 
+read_existing_config() {
+  local listen_value existing_port existing_psk existing_dns_ip_preference
+
+  [[ -f "${CONFIG_FILE}" ]] || return 0
+
+  listen_value="$(awk -F '=' '/^[[:space:]]*listen[[:space:]]*=/{gsub(/[[:space:]]/, "", $2); print $2; exit}' "${CONFIG_FILE}")"
+  existing_port="$(printf '%s\n' "${listen_value}" | sed -E 's/.*:([0-9]+)(,.*)?$/\1/')"
+  existing_psk="$(awk -F '=' '/^[[:space:]]*psk[[:space:]]*=/{gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2; exit}' "${CONFIG_FILE}")"
+  existing_dns_ip_preference="$(awk -F '=' '/^[[:space:]]*dns-ip-preference[[:space:]]*=/{gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2; exit}' "${CONFIG_FILE}")"
+
+  if [[ -z "${SNELL_PORT}" && "${existing_port}" =~ ^[0-9]+$ ]]; then
+    SNELL_PORT="${existing_port}"
+  fi
+
+  if [[ -z "${SNELL_PSK}" && -n "${existing_psk}" ]]; then
+    SNELL_PSK="${existing_psk}"
+  fi
+
+  if [[ "${DNS_IP_PREFERENCE}" == "default" && -n "${existing_dns_ip_preference}" ]]; then
+    DNS_IP_PREFERENCE="${existing_dns_ip_preference}"
+  fi
+}
+
 install_deps() {
   log "Installing dependencies..."
 
@@ -125,6 +149,11 @@ cleanup_old_self_service() {
 install_snell() {
   local arch url tmp_dir zip_file
   arch="$(detect_arch)"
+
+  if [[ "${SNELL_VERSION}" == "6.0.0b3" && "${arch}" == "armv7l" ]]; then
+    die "Snell v6.0.0b3 does not provide an official linux-armv7l build yet. Please use amd64, aarch64 or i386."
+  fi
+
   url="https://dl.nssurge.com/snell/snell-server-v${SNELL_VERSION}-linux-${arch}.zip"
   tmp_dir="$(mktemp -d)"
   zip_file="${tmp_dir}/snell-server.zip"
@@ -165,6 +194,7 @@ write_config() {
 [snell-server]
 listen = ${listen_value}
 psk = ${SNELL_PSK}
+mode = ${SNELL_MODE}
 dns-ip-preference = ${DNS_IP_PREFERENCE}
 EOF
 
@@ -244,7 +274,7 @@ write_client_config() {
 # Surge client configuration
 # Add this line under the [Proxy] section:
 
-Snell-v6 = snell, ${server_ip}, ${SNELL_PORT}, psk=${SNELL_PSK}, version=6, reuse=true
+Snell-v6 = snell, ${server_ip}, ${SNELL_PORT}, psk=${SNELL_PSK}, version=6
 EOF
 
   install -m 600 -o root -g root "${tmp_file}" "${CLIENT_FILE}"
@@ -292,6 +322,7 @@ main() {
   install_deps
   ensure_service_identity
   cleanup_old_self_service
+  read_existing_config
   install_snell
   write_config
   write_service
