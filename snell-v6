@@ -274,7 +274,7 @@ write_client_config() {
 # Surge client configuration
 # Add this line under the [Proxy] section:
 
-Snell-v6 = snell, ${server_ip}, ${SNELL_PORT}, psk=${SNELL_PSK}, version=6
+Snell-v6 = snell, ${server_ip}, ${SNELL_PORT}, psk=${SNELL_PSK}, version=6, reuse=true
 EOF
 
   install -m 600 -o root -g root "${tmp_file}" "${CLIENT_FILE}"
