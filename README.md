@@ -56,16 +56,16 @@ bash <(curl -fsSL https://raw.githubusercontent.com/akaagiao1/sb-zhaige/main/sne
 把脚本输出的这一行加入 Surge 配置的 `[Proxy]` 区域：
 
 ```ini
-Snell-v6 = snell, 服务器IP, 随机端口, psk=随机密钥, version=6
+Snell-v6 = snell, 服务器IP, 随机端口, psk=随机密钥, version=6, reuse=true
 ```
 
 示例：
 
 ```ini
-Snell-v6 = snell, 1.2.3.4, 34567, psk=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef, version=6
+Snell-v6 = snell, 1.2.3.4, 34567, psk=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef, version=6, reuse=true
 ```
 
-不建议默认添加 `reuse=true` 或其他多路复用参数。Surge 官方手册目前把 Snell 的 `reuse` 标注为 Snell v4 的可选连接复用参数，v6 先保持默认最稳。
+脚本默认在 Surge 客户端配置里添加 `reuse=true`。如果你的线路在开启后出现异常、卡顿或兼容性问题，可以手动删除这一段参数后再测试。
 
 ## 可选参数
 
