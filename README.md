@@ -21,6 +21,22 @@ Snell 是 Surge 团队开发的轻量加密代理协议。v6 的核心变化是�
 bash <(curl -fsSL https://raw.githubusercontent.com/akaagiao1/sb-zhaige/main/snell-v6)
 ```
 
+交互菜单提供安装、升级、重新安装和卸载选项。也可以直接指定操作：
+
+```bash
+# 升级，完整保留已有服务端配置
+bash <(curl -fsSL https://raw.githubusercontent.com/akaagiao1/sb-zhaige/main/snell-v6) upgrade
+
+# 重新安装，完整保留已有服务端配置
+bash <(curl -fsSL https://raw.githubusercontent.com/akaagiao1/sb-zhaige/main/snell-v6) reinstall
+
+# 卸载程序，保留配置，方便以后重新安装
+bash <(curl -fsSL https://raw.githubusercontent.com/akaagiao1/sb-zhaige/main/snell-v6) uninstall
+
+# 彻底卸载，同时删除服务端和客户端配置
+bash <(curl -fsSL https://raw.githubusercontent.com/akaagiao1/sb-zhaige/main/snell-v6) uninstall --purge
+```
+
 如果服务器没有 `curl`：
 
 ```bash
@@ -38,7 +54,8 @@ bash <(curl -fsSL https://raw.githubusercontent.com/akaagiao1/sb-zhaige/main/sne
 - 下载 Snell v6 服务端
 - 首次安装随机生成端口
 - 首次安装随机生成 PSK 密钥
-- 重新安装时默认保留已有端口和 PSK
+- 升级或重新安装时原样保留已有服务端配置（包括手工添加的配置项）
+- 覆盖程序前自动备份服务端配置为 `snell-server.conf.bak.时间戳`
 - 创建 `/etc/snell-v6/snell-server.conf`
 - 写入 `mode = default`
 - 创建并启动 systemd 服务 `snell-v6`
@@ -68,6 +85,8 @@ Snell-v6 = snell, 1.2.3.4, 34567, psk=0123456789abcdef0123456789abcdef0123456789
 脚本默认在 Surge 客户端配置里添加 `reuse=true`。如果你的线路在开启后出现异常、卡顿或兼容性问题，可以手动删除这一段参数后再测试。
 
 ## 可选参数
+
+> 已有配置时，安装、升级和重新安装均以已有配置为准，不会用环境变量覆盖配置。
 
 指定端口：
 
