@@ -7,6 +7,8 @@ SNELL_PSK="${SNELL_PSK:-}"
 SNELL_MODE="${SNELL_MODE:-default}"
 ENABLE_IPV6="${ENABLE_IPV6:-0}"
 DNS_IP_PREFERENCE="${DNS_IP_PREFERENCE:-default}"
+ACTION="${1:-}"
+PURGE_CONFIG=0
 
 SERVICE_NAME="snell-v6"
 SERVICE_USER="nobody"
@@ -19,6 +21,69 @@ BIN_FILE="/usr/local/bin/snell-server-v6"
 CLIENT_FILE="/root/snell-v6-client.conf"
 
 OLD_SELF_SERVICE_FILE="/etc/systemd/system/snell.service"
+
+usage() {
+  cat <<'EOF'
+Usage: snell-v6 [install|upgrade|reinstall|uninstall] [--purge]
+
+  install      Install Snell v6; preserve an existing configuration
+  upgrade      Replace the binary and service; preserve the configuration
+  reinstall    Reinstall the binary and service; preserve the configuration
+  uninstall    Remove Snell v6; preserve configuration by default
+  --purge      With uninstall, also remove server and client configuration
+EOF
+}
+
+choose_action() {
+  local choice
+
+  [[ -n "${ACTION}" ]] && return 0
+  if [[ ! -r /dev/tty || ! -w /dev/tty ]]; then
+    ACTION="install"
+    return 0
+  fi
+
+  cat >/dev/tty <<'EOF'
+
+========== Snell v6 ==========
+1) Install
+2) Upgrade (keep configuration)
+3) Reinstall (keep configuration)
+4) Uninstall (keep configuration)
+5) Uninstall and remove configuration
+0) Exit
+EOF
+  read -r -p "Choose [0-5]: " choice </dev/tty
+  case "${choice}" in
+    1) ACTION="install" ;;
+    2) ACTION="upgrade" ;;
+    3) ACTION="reinstall" ;;
+    4) ACTION="uninstall" ;;
+    5) ACTION="uninstall"; PURGE_CONFIG=1 ;;
+    0) exit 0 ;;
+    *) die "Invalid choice: ${choice}" ;;
+  esac
+}
+
+parse_args() {
+  local arg
+  choose_action
+  for arg in "$@"; do
+    case "${arg}" in
+      install | upgrade | reinstall | uninstall) ACTION="${arg}" ;;
+      --purge) PURGE_CONFIG=1 ;;
+      -h | --help) usage; exit 0 ;;
+      *) die "Unknown option: ${arg}" ;;
+    esac
+  done
+
+  case "${ACTION}" in
+    install | upgrade | reinstall | uninstall) ;;
+    *) usage; die "Unknown action: ${ACTION}" ;;
+  esac
+  [[ "${PURGE_CONFIG}" -eq 0 || "${ACTION}" == "uninstall" ]] ||
+    die "--purge can only be used with uninstall"
+}
 
 log() {
   echo "[snell-v6] $*"
@@ -202,6 +267,14 @@ EOF
   rm -f "${tmp_file}"
 }
 
+backup_config() {
+  local backup_file
+  [[ -f "${CONFIG_FILE}" ]] || return 0
+  backup_file="${CONFIG_FILE}.bak.$(date +%Y%m%d%H%M%S)"
+  cp -a "${CONFIG_FILE}" "${backup_file}"
+  log "Configuration backup: ${backup_file}"
+}
+
 write_service() {
   cat >"${SERVICE_FILE}" <<EOF
 [Unit]
@@ -281,6 +354,25 @@ EOF
   rm -f "${tmp_file}"
 }
 
+uninstall_snell() {
+  log "Stopping and removing ${SERVICE_NAME}..."
+  systemctl disable --now "${SERVICE_NAME}" >/dev/null 2>&1 || true
+  rm -f "${SERVICE_FILE}" "${BIN_FILE}"
+  systemctl daemon-reload
+  systemctl reset-failed "${SERVICE_NAME}" >/dev/null 2>&1 || true
+
+  if [[ "${PURGE_CONFIG}" -eq 1 ]]; then
+    rm -rf "${CONFIG_DIR}"
+    rm -f "${CLIENT_FILE}"
+    log "Snell v6 and its configuration have been removed."
+  else
+    log "Snell v6 has been removed. Configuration was preserved:"
+    log "  ${CONFIG_DIR}"
+    log "  ${CLIENT_FILE}"
+  fi
+  log "Firewall rules were not changed. Remove the old TCP port rule manually if it is no longer needed."
+}
+
 start_service() {
   systemctl daemon-reload || return 1
   systemctl enable "${SERVICE_NAME}" >/dev/null || return 1
@@ -317,14 +409,28 @@ print_failure_details() {
 }
 
 main() {
+  parse_args "$@"
   need_root
   need_systemd
+
+  if [[ "${ACTION}" == "uninstall" ]]; then
+    uninstall_snell
+    return
+  fi
+
   install_deps
   ensure_service_identity
   cleanup_old_self_service
   read_existing_config
+  if [[ -f "${CONFIG_FILE}" ]]; then
+    backup_config
+  fi
   install_snell
-  write_config
+  if [[ ! -f "${CONFIG_FILE}" ]]; then
+    write_config
+  else
+    log "Preserving existing server configuration: ${CONFIG_FILE}"
+  fi
   write_service
   write_client_config
   open_firewall_if_needed
