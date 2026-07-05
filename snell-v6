@@ -26,11 +26,11 @@ usage() {
   cat <<'EOF'
 Usage: snell-v6 [install|upgrade|reinstall|uninstall] [--purge]
 
-  install      Install Snell v6; preserve an existing configuration
-  upgrade      Replace the binary and service; preserve the configuration
-  reinstall    Reinstall the binary and service; preserve the configuration
-  uninstall    Remove Snell v6; preserve configuration by default
-  --purge      With uninstall, also remove server and client configuration
+  install      安装 Snell v6；保留已有配置 / Install Snell v6; preserve existing configuration
+  upgrade      升级程序；保留配置 / Upgrade the binary and service; preserve configuration
+  reinstall    重新安装；保留配置 / Reinstall the binary and service; preserve configuration
+  uninstall    卸载程序；默认保留配置 / Uninstall Snell v6; preserve configuration by default
+  --purge      卸载时同时删除配置 / Also remove server and client configuration on uninstall
 EOF
 }
 
@@ -46,14 +46,14 @@ choose_action() {
   cat >/dev/tty <<'EOF'
 
 ========== Snell v6 ==========
-1) Install
-2) Upgrade (keep configuration)
-3) Reinstall (keep configuration)
-4) Uninstall (keep configuration)
-5) Uninstall and remove configuration
-0) Exit
+1) 安装 / Install
+2) 升级（保留配置）/ Upgrade (keep configuration)
+3) 重新安装（保留配置）/ Reinstall (keep configuration)
+4) 卸载（保留配置）/ Uninstall (keep configuration)
+5) 彻底卸载（删除配置）/ Uninstall and remove configuration
+0) 退出 / Exit
 EOF
-  read -r -p "Choose [0-5]: " choice </dev/tty
+  read -r -p "请选择 / Choose [0-5]: " choice </dev/tty
   case "${choice}" in
     1) ACTION="install" ;;
     2) ACTION="upgrade" ;;
