@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-SNELL_VERSION="${SNELL_VERSION:-6.0.0b3}"
+SNELL_VERSION="${SNELL_VERSION:-6.0.0rc}"
 SNELL_PORT="${SNELL_PORT:-}"
 SNELL_PSK="${SNELL_PSK:-}"
 SNELL_MODE="${SNELL_MODE:-default}"
@@ -215,8 +215,8 @@ install_snell() {
   local arch url tmp_dir zip_file
   arch="$(detect_arch)"
 
-  if [[ "${SNELL_VERSION}" == "6.0.0b3" && "${arch}" == "armv7l" ]]; then
-    die "Snell v6.0.0b3 does not provide an official linux-armv7l build yet. Please use amd64, aarch64 or i386."
+  if [[ "${SNELL_VERSION}" == 6.* && "${arch}" == "armv7l" ]]; then
+    die "Snell v${SNELL_VERSION} does not provide an official linux-armv7l build. Please use amd64, aarch64 or i386."
   fi
 
   url="https://dl.nssurge.com/snell/snell-server-v${SNELL_VERSION}-linux-${arch}.zip"

@@ -2,7 +2,7 @@
 
 这个仓库只保留 Snell v6 的一键安装脚本。
 
-Snell 是 Surge 团队开发的轻量加密代理协议。v6 的核心变化是根据 PSK 自动派生部署级协议特征，让不同服务器产生不同的流量特征。当前脚本默认安装 Snell Server `6.0.0b3`，客户端和服务端建议保持同一代 Beta 版本。
+Snell 是 Surge 团队开发的轻量加密代理协议。v6 的核心变化是根据 PSK 自动派生部署级协议特征，让不同服务器产生不同的流量特征。当前脚本默认安装 Snell Server `6.0.0rc`，客户端和服务端建议保持同一代 RC 版本。
 
 ## 适用环境
 
@@ -11,7 +11,7 @@ Snell 是 Surge 团队开发的轻量加密代理协议。v6 的核心变化是�
 - CentOS 7/8/Stream/9
 - Rocky Linux / AlmaLinux / RHEL 系发行版
 - root 用户或可使用 sudo 的用户
-- Surge Mac Beta 或 Surge iOS TestFlight，且客户端需要支持 `version=6`
+- 支持 Snell v6 的 Surge 客户端，且配置使用 `version=6`
 
 ## 一键安装
 
@@ -162,7 +162,7 @@ cat /root/snell-v6-client.conf
 2. 服务器防火墙是否放行该 TCP 端口。
 3. Surge 客户端是否支持 Snell v6。
 4. 客户端里的 `psk` 是否和 `/etc/snell-v6/snell-server.conf` 完全一致。
-5. Snell v6 Beta 期间可能有不兼容更新，客户端和服务端需要保持更新。
+5. Snell v6 RC 期间仍可能有不兼容更新，客户端和服务端需要保持更新。
 
 ## 官方说明
 
