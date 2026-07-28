@@ -63,6 +63,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/akaagiao1/sb-zhaige/main/sne
 - 创建 `/etc/snell-v6/snell-server.conf`
 - 写入 `mode = default`
 - 创建并启动 systemd 或 OpenRC 服务 `snell-v6`
+- 默认启用 BBR 拥塞控制和 `fq` 队列调度（内核支持时立即生效）
 - 自动处理 UFW / firewalld 放行
 - 输出 Surge 客户端配置
 
