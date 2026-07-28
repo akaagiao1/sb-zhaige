@@ -10,6 +10,7 @@ Snell 是 Surge 团队开发的轻量加密代理协议。v6 的核心变化是�
 - Ubuntu 20.04/22.04/24.04
 - CentOS 7/8/Stream/9
 - Rocky Linux / AlmaLinux / RHEL 系发行版
+- Alpine Linux（OpenRC）
 - root 用户或可使用 sudo 的用户
 - 支持 Snell v6 的 Surge 客户端，且配置使用 `version=6`
 
@@ -46,6 +47,9 @@ apt update && apt install -y curl
 # CentOS / RHEL / Rocky / AlmaLinux
 dnf install -y curl || yum install -y curl
 
+# Alpine Linux
+apk add --no-cache bash curl
+
 bash <(curl -fsSL https://raw.githubusercontent.com/akaagiao1/sb-zhaige/main/snell-v6)
 ```
 
@@ -58,7 +62,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/akaagiao1/sb-zhaige/main/sne
 - 覆盖程序前自动备份服务端配置为 `snell-server.conf.bak.时间戳`
 - 创建 `/etc/snell-v6/snell-server.conf`
 - 写入 `mode = default`
-- 创建并启动 systemd 服务 `snell-v6`
+- 创建并启动 systemd 或 OpenRC 服务 `snell-v6`
 - 自动处理 UFW / firewalld 放行
 - 输出 Surge 客户端配置
 
@@ -134,12 +138,18 @@ SNELL_MODE=default bash <(curl -fsSL https://raw.githubusercontent.com/akaagiao1
 
 ```bash
 systemctl status snell-v6 --no-pager
+
+# Alpine Linux / OpenRC
+rc-service snell-v6 status
 ```
 
 查看日志：
 
 ```bash
 journalctl -u snell-v6 -n 80 --no-pager
+
+# Alpine Linux / OpenRC（需要系统日志服务）
+logread | grep snell-v6
 ```
 
 查看服务端配置：
