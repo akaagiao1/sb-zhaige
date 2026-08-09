@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-SNELL_VERSION="${SNELL_VERSION:-6.0.0rc}"
+SNELL_VERSION="${SNELL_VERSION:-6.0.0rc2}"
 SNELL_PORT="${SNELL_PORT:-}"
 SNELL_PSK="${SNELL_PSK:-}"
 SNELL_MODE="${SNELL_MODE:-default}"
