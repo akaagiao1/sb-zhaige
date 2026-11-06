@@ -10,7 +10,7 @@ Snell 是 Surge 团队开发的轻量加密代理协议。v6 的核心变化是�
 - Ubuntu 20.04/22.04/24.04
 - CentOS 7/8/Stream/9
 - Rocky Linux / AlmaLinux / RHEL 系发行版
-- Alpine Linux（OpenRC）
+- Alpine Linux（OpenRC；精简版/容器镜像未预装 OpenRC 也能装，脚本会自动装上）
 - root 用户或可使用 sudo 的用户
 - 支持 Snell v6 的 Surge 客户端，且配置使用 `version=6`
 
