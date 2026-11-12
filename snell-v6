@@ -5,7 +5,7 @@ SNELL_VERSION="${SNELL_VERSION:-6.0.0}"
 SNELL_PORT="${SNELL_PORT:-}"
 SNELL_PSK="${SNELL_PSK:-}"
 SNELL_MODE="${SNELL_MODE:-default}"
-ENABLE_IPV6="${ENABLE_IPV6:-0}"
+ENABLE_IPV6="${ENABLE_IPV6:-}" # empty = auto-detect; 1/true = force on, 0/false = force off
 DNS_IP_PREFERENCE="${DNS_IP_PREFERENCE:-default}"
 ACTION="${1:-}"
 PURGE_CONFIG=0
@@ -138,6 +138,47 @@ detect_arch() {
   esac
 }
 
+# True when the machine has a usable global IPv6 address (2000::/3).
+# Link-local (fe80::/10) and ULA (fc00::/7) addresses do not count:
+# binding [::] would be pointless there, and on a box without IPv6
+# at all it could keep snell-server from starting.
+has_global_ipv6() {
+  command -v ip >/dev/null 2>&1 || return 1
+  ip -6 addr show scope global 2>/dev/null | grep -qE 'inet6 [23][0-9a-f]{3}:'
+}
+
+# Decide once whether to listen on IPv6. An explicit ENABLE_IPV6 wins;
+# when it is unset, auto-detect from the machine's addresses so a
+# dual-stack box never ends up IPv4-only by accident.
+resolve_ipv6() {
+  if [[ "${ENABLE_IPV6}" == "1" || "${ENABLE_IPV6}" == "true" ]]; then
+    IPV6_ENABLED=1
+    log "IPv6 listen enabled (ENABLE_IPV6=${ENABLE_IPV6})."
+  elif [[ "${ENABLE_IPV6}" == "0" || "${ENABLE_IPV6}" == "false" ]]; then
+    IPV6_ENABLED=0
+    log "IPv6 listen disabled (ENABLE_IPV6=${ENABLE_IPV6})."
+  elif has_global_ipv6; then
+    IPV6_ENABLED=1
+    log "IPv6 listen enabled (global IPv6 address detected)."
+  else
+    IPV6_ENABLED=0
+    log "IPv6 listen disabled (no global IPv6 address detected)."
+  fi
+}
+
+# Existing configurations are preserved untouched, so an old IPv4-only
+# install on a dual-stack box stays IPv4-only. Warn instead of silently
+# leaving IPv6 clients locked out.
+warn_ipv6_listen_mismatch() {
+  local listen_value
+  [[ -f "${CONFIG_FILE}" ]] || return 0
+  [[ "${IPV6_ENABLED:-0}" == "1" ]] || return 0
+  listen_value="$(awk -F '=' '/^[[:space:]]*listen[[:space:]]*=/{gsub(/[[:space:]]/, "", $2); print $2; exit}' "${CONFIG_FILE}")"
+  [[ "${listen_value}" == *"[::]"* ]] && return 0
+  log "WARNING: This machine has a global IPv6 address, but ${CONFIG_FILE} only listens on IPv4 (${listen_value})."
+  log "WARNING: IPv6 clients cannot reach this node. Fix: set listen = 0.0.0.0:<port>,[::]:<port> and restart ${SERVICE_NAME}."
+}
+
 random_port() {
   local port
 
@@ -264,7 +305,7 @@ write_config() {
     SNELL_PSK="$(random_psk)"
   fi
 
-  if [[ "${ENABLE_IPV6}" == "1" || "${ENABLE_IPV6}" == "true" ]]; then
+  if [[ "${IPV6_ENABLED:-0}" == "1" ]]; then
     listen_value="0.0.0.0:${SNELL_PORT},[::]:${SNELL_PORT}"
   else
     listen_value="0.0.0.0:${SNELL_PORT}"
@@ -396,7 +437,7 @@ public_ip() {
     ip="$(curl -4fsS --max-time 6 https://ifconfig.me 2>/dev/null || true)"
   fi
 
-  if [[ -z "${ip}" && ( "${ENABLE_IPV6}" == "1" || "${ENABLE_IPV6}" == "true" ) ]]; then
+  if [[ -z "${ip}" && "${IPV6_ENABLED:-0}" == "1" ]]; then
     ip="$(curl -6fsS --max-time 6 https://api64.ipify.org 2>/dev/null || true)"
   fi
 
@@ -517,6 +558,7 @@ main() {
   fi
 
   install_deps
+  resolve_ipv6
   detect_init_system
   ensure_service_identity
   cleanup_old_self_service
@@ -534,6 +576,7 @@ main() {
   write_client_config
   enable_bbr_fq
   open_firewall_if_needed
+  warn_ipv6_listen_mismatch
 
   if start_service; then
     print_result "running"

@@ -62,6 +62,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/akaagiao1/sb-zhaige/main/sne
 - 覆盖程序前自动备份服务端配置为 `snell-server.conf.bak.时间戳`
 - 创建 `/etc/snell-v6/snell-server.conf`
 - 写入 `mode = default`
+- 有公网 IPv6 时自动双栈监听（IPv4 + IPv6），无 IPv6 时只监听 IPv4
 - 创建并启动 systemd 或 OpenRC 服务 `snell-v6`
 - 默认启用 BBR 拥塞控制和 `fq` 队列调度（内核支持时立即生效）
 - 自动处理 UFW / firewalld 放行
@@ -105,10 +106,14 @@ SNELL_PORT=7177 bash <(curl -fsSL https://raw.githubusercontent.com/akaagiao1/sb
 SNELL_PSK='your-strong-psk' bash <(curl -fsSL https://raw.githubusercontent.com/akaagiao1/sb-zhaige/main/snell-v6)
 ```
 
-开启 IPv6 监听：
+IPv6 监听（默认自动检测：有公网 IPv6 地址时双栈监听，否则只监听 IPv4）：
 
 ```bash
+# 强制双栈监听
 ENABLE_IPV6=1 bash <(curl -fsSL https://raw.githubusercontent.com/akaagiao1/sb-zhaige/main/snell-v6)
+
+# 强制只监听 IPv4
+ENABLE_IPV6=0 bash <(curl -fsSL https://raw.githubusercontent.com/akaagiao1/sb-zhaige/main/snell-v6)
 ```
 
 指定 DNS 出口 IP 偏好：
@@ -174,6 +179,7 @@ cat /root/snell-v6-client.conf
 3. Surge 客户端是否支持 Snell v6。
 4. 客户端里的 `psk` 是否和 `/etc/snell-v6/snell-server.conf` 完全一致。
 5. Snell v6 仍在 Beta 阶段，官方仍可能做不兼容更新，客户端和服务端需要保持更新。
+6. 客户端走 IPv6 入口时，确认配置里 `listen` 包含 `[::]:端口`；只有 `0.0.0.0` 时 IPv6 无法接入（新安装会自动检测，旧配置需手动修改后重启服务）。
 
 ## 官方说明
 
